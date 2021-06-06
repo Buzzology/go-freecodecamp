@@ -530,5 +530,215 @@ Best practices:
 - Define functions and methods to receive interfaces where possible (unless you need access to the values)  
 
 
+## Go Routines
+Use `go` keyword to execute new *green* thread. Green threads aren't *real* threads but a lightweight version that allows for a significantly higher number of *threads* to be run.  
+
+Can use anonymous functions for this:  
+```
+func main() {
+    var msg = "Hello"
+    go func() {
+        fmt.Println(msg)
+    }()
+    time.Sleep(100 * time.Millisecond)
+}
+```
+
+Note that accessing variables outside the scope can create race conditions:
+```
+func main() {
+    var msg = "Hello"
+    go func() {
+        fmt.Println(msg) // Will often display goodbye instead of hello
+    }()
+    msg = "goodbye" 
+    time.Sleep(100 * time.Millisecond)
+}
+```
+
+Can avoid this by passing in the variable as an argument:
+```
+func main() {
+    var msg = "Hello"
+    go func(msg string) {
+        fmt.Println(msg) // Will often display goodbye instead of hello
+    }(msg)
+    msg = "goodbye" 
+    time.Sleep(100 * time.Millisecond)
+}
+```
+
+Can remove the `sleep` by using wait groups:
+```
+var wg = sync.WaitGroup{}
+
+func main() {
+	var msg = "Hello"
+	wg.Add(1)
+
+    go func(msg string) {
+        fmt.Println(msg)
+		wg.Done()
+    }(msg)
+    msg = "goodbye"
+	wg.Wait() 
+}
+
+func sayHello() {
+	fmt.Println("hello")
+}
+```
+
+`runtime.GOMAXPROCS` is used to set/limit the number of CPU threads. By default this is number of cores.  
+
+### Best practices
+- External facing libraries should try to avoid using goroutines if possible. Leave it to the consumer to decide when they want them.   
+- Identity race conditions early, use `go run -race src/main.go`  
 
 
+## Channels  
+Created using make, note that they are strongly typed - can only use the data type they are initiated with:
+```
+ch := make(chan int)
+```
+
+Using a channel to send the value of 42 from one goroutine to another:  
+```
+var wg = sync.WaitGroup{}
+
+func main() {
+	ch := make(chan int)
+	wg.Add(2)
+
+	go func() {
+		i := <- ch
+		fmt.Println(i)
+		wg.Done()
+	}()
+
+	go func() {
+		ch <- 42
+		wg.Done()
+	}()
+
+	wg.Wait()
+}
+```
+
+Multiple go routines can make use of a single channel, can also have more senders than receivers (or vice versa).  
+
+You will reach a deadlock if a goroutine tries to send a message on a channel but there are no receivers.  
+
+While you *can* have a single goroutine reading and writing from a channel you will normally want to split them up (is this true???). Can explicitly mark a channel as send or receive using the following notations:  
+```
+var wg = sync.WaitGroup{}
+
+func main() {
+    ch := make(chan int)
+    wg.Add(2)
+
+    // Read only
+    go func(ch <-chan int) {
+        i := <- ch // Read value from channel
+        fmt.Println(i)
+        wg.Done()
+    }(ch)
+
+    // Send only
+    go func (ch chan<- int) {
+        ch <- 42 // Send value of 42 across channel
+        wg.Done()
+    }(ch)
+
+    wg.Wait()
+}
+
+```
+
+Note that receive is `ch <-chan` and send is `ch chan<-`. A way to remember this is that its an arrow pointing to which way the data is going. `<-chan` is data flowing out of the channel, `ch chan<-` is data flowing into the channel.  
+
+Receiving multiple values from a channel:
+```
+func main() {
+    ch := make(chan int, 50) // Second arg is buffer length
+    wg.Add(2)
+    go func(ch <-chan int) {
+        // Loop over all messages in channel
+        for i := range ch {
+            fmt.Println(i)
+        }
+        wg.Done()
+    }
+
+    go func(ch chan<- int) {
+        ch <- 42
+        ch <- 27
+        close(ch) // Must close the channel when done or the receiver will break
+        wg.Done()
+    }
+}
+```
+
+Can use the following syntax in scenarios where unsure if the channel will be closed:  
+```
+func main() {
+    ch := make(chan int, 50) // Second arg is buffer length
+    wg.Add(2)
+    go func(ch <-chan int) {
+        for {
+            if i, ok := <- ch; ok {
+                fmt.Println(i)
+            } else {
+                break
+            }
+        }
+        wg.Done()
+    }(ch)
+
+    go func(ch chan<- int) {
+        ch <- 42
+        ch <- 27
+        close(ch) // Must close the channel when done or the receiver will break
+        wg.Done()
+    }
+}
+```
+
+### Select statements
+Can use select statement to handle messages from multiple channels. The following example uses a secondary channel to signal when a logger goroutine should terminate.   
+```
+const (
+	logInfo = "INFO"
+	logWarning = "WARNING"
+	logError = "ERROR"
+)
+
+type logEntry struct {
+	time time.Time
+	severity string
+	message string
+}
+
+var logCh = make(chan logEntry, 50)
+var doneCh = make(chan struct{}) // Using empty struct is similar to using a bool channel but requires no memory. A performance convention.
+
+func main() {
+	go logger()
+	logCh <- logEntry{time.Now(), logInfo, "App is starting"}
+	logCh <- logEntry{time.Now(), logInfo, "App is shutting down"}
+	doneCh <- struct{}{} // Pass an empty struct to signal end
+	time.Sleep(100 * time.Millisecond)
+}
+
+func logger() {
+	for {
+		select { // Blocks until a message is received on one of the channels
+		case entry := <-logCh:
+			fmt.Printf("%v - [%v] %s\n", entry.time.Format("2020-01-02T15:04:05"), entry.severity, entry.message)
+		case <-doneCh:
+			break
+		}
+		// NOTE: If you add a default statement it won't block
+	}
+}
+```

@@ -77,12 +77,12 @@ Length of array: `len(grades)`
 
 
 ## Slices
-Slices are backed by arrays but may be part (or all) of the backing array. Think of as a "slice" of an array.
+Slices are backed by arrays but may be part (or all) of the backing array. Think of as a "slice" of an array.  
 Initialise: `grades := []int {1, 2, 3}`  
 Initialise: `grades2 := grades[2:] // Slice from the 2nd element to the end` 
 Initialise: `grades3 := grades[:2] // Slice from the first element up to but not including the second index`  
 
-Note that unlike arrays slices all point to the same underlying data:
+Note that unlike arrays slices all point to the same underlying data:  
 ```
 a := []int {1,2,3}
 b := a
@@ -101,6 +101,12 @@ a = append(a, []int {2, 3, 4, 5}...) // appends 2,3,4,5 to a
 ```  
 
 Use `cap` to determine the length of underlying array, `len` to determine length of the slice.  
+
+### Delete an entry from a slice  
+https://stackoverflow.com/a/20545912/522859  
+```
+m = append(m[:i], m[i+1:]...)
+```
 
 
 ## Maps  

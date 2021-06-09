@@ -79,8 +79,8 @@ Length of array: `len(grades)`
 ## Slices
 Slices are backed by arrays but may be part (or all) of the backing array. Think of as a "slice" of an array.  
 Initialise: `grades := []int {1, 2, 3}`  
-Initialise: `grades2 := grades[2:] // Slice from the 2nd element to the end` 
-Initialise: `grades3 := grades[:2] // Slice from the first element up to but not including the second index`  
+Initialise: `grades2 := grades[2:] // Slice from the 2nd element to the end`  
+Initialise: `grades3 := grades[:2] // Slice from the first element up to but not including the second index`   
 
 Note that unlike arrays slices all point to the same underlying data:  
 ```

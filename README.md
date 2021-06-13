@@ -7,7 +7,8 @@ Up to: https://youtu.be/YS4e4q9oBaU?t=20042
 Compound gopath - is similar to a normal path var, seperate using semi-colon.  
 Project requires a single `src` directory  
 pkg is where intermediate binaries are stored e.g. temp for while generating binaries.  
-Go install adds to the app's bin folder.
+Go install adds to the app's bin folder.  
+Get all dependencies: `go get ./...`  
 
 ## Vars Notes
 Shadowed variables is a term used to describe inner scope variables overriding higher scoped variables of the same name.  
